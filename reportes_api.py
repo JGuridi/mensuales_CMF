@@ -15,14 +15,15 @@ pd.options.mode.chained_assignment = None   # para evitar una advertencia
 # -------------------------------------- api y pegado --------------------------------------
 
 # definimos parámetros
-ids = ['001', '009', '012', '014', '016', '028', '037', '039', '049', '051', '053', '055', '059', '999']
-archivos = ['BancodeChile.xlsx', 'BancoInternacional.xlsx', 'BancoEstado.xlsx', 'Scotiabank.xlsx', 'BCI.xlsx', 'BICE.xlsx', 'Santander.xlsx', 'Security.xlsx', 'BancoFalabella.xlsx', 'Ripley.xlsx', 'Consorcio.xlsx', 'BTG.xlsx', 'Industria.xlsx']
+# ids = ['001', '009', '012', '014', '016', '028', '037', '039', '049', '051', '053', '055', '059', '999']
+# archivos = ['BancodeChile.xlsx', 'BancoInternacional.xlsx', 'BancoEstado.xlsx', 'Scotiabank.xlsx', 'BCI.xlsx', 'BICE.xlsx', 'Santander.xlsx', 'Security.slxs', 'BancoFalabella.xlsx', 'Ripley.xlsx', 'Consorcio.xlsx', 'BTG.xlsx', 'Industria.xlsx']
+ids = ['001', '999']
+archivos = ['BancodeChile.xlsx', 'Industria.xlsx']
 api_key = '5bb0899f6fa8e7466d385a6305d93596f9df1014'
 
 año, mes, dia = fecha() 
 
 uf = u_efe(año, mes, dia, api_key)['UFs'][0]['Valor'] 
-
 
 for j,k in zip(ids, archivos):
     pbar = tqdm(total=3, desc=f'Descargando datos para {k}', ncols=100, bar_format='{desc} {percentage:3.0f}%|{bar}|')
@@ -31,13 +32,24 @@ for j,k in zip(ids, archivos):
     pbar.update(1)
     resultado = pd.DataFrame(mensual_resultados(año, mes, j, api_key)['CodigosEstadosDeResultado'])
     pbar.update(1)
-    datos_balance = balance[['CodigoCuenta','MonedaTotal']].rename(columns={'CodigoCuenta': 'cuenta', 'MonedaTotal': j}).sort_values(by=['cuenta'])
-    datos_resultados = resultado[['CodigoCuenta','MonedaTotal']].rename(columns={'CodigoCuenta': 'cuenta', 'MonedaTotal': j}).sort_values(by=['cuenta'])
+
+    # pasamos montos a MM
+    balance['MonedaTotal'] = balance['MonedaTotal'].str.replace(',','.').astype(float) / 1000000
+    resultado['MonedaTotal'] = resultado['MonedaTotal'].str.replace(',','.').astype(float) / 1000000
+
+    # sacamos columnas relevantes, cambiamos el nombre, ordenamos y pasamos a números enteros
+    datos_balance = balance[['CodigoCuenta','MonedaTotal']].rename(columns={'CodigoCuenta': 'cuenta', 'MonedaTotal': j}).sort_values(by=['cuenta']).astype(int)
+    datos_resultados = resultado[['CodigoCuenta','MonedaTotal']].rename(columns={'CodigoCuenta': 'cuenta', 'MonedaTotal': j}).sort_values(by=['cuenta']).astype(int)
+
+    # saca el largo de cuentas que se informan
     largo_datos_balance, largo_datos_resultados = len(datos_balance.cuenta), len(datos_resultados.cuenta)
 
     # pega los montos 
-    wb, ws_balance, ws_resultado = exel(k)
+    wb = load_workbook(filename=f'{k}')
+    ws_balance, ws_resultado = wb['B1'], wb['R1']
+    
     cuentas_balance, montos_balance = list(datos_balance['cuenta']), list(datos_balance[j])
+
     cuentas_resultado, montos_resultado = list(datos_resultados['cuenta']), list(datos_resultados[j])
     pegar(ws_balance, cuentas_balance, montos_balance, largo_datos_balance)
     pegar(ws_resultado, cuentas_resultado, montos_resultado, largo_datos_resultados)
@@ -115,8 +127,6 @@ for j in (archivos):
             rng = f'{col}4:{col}{len(datos_ordenados)}'
             pegar_2(datos_ordenados, rng, resultados)
         
-    
-    time.sleep(1)
     pbar.update(1)
     wb.save(filename = f'{j}')
 
