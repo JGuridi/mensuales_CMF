@@ -37,7 +37,7 @@ def pegar(eeff, cuentas, montos, filas):
     for v,r in zip(cuentas, range(2, filas)):
         c = eeff.cell(row=r, column=1)
         c.value = v
-        c.number_format = numbers.BUILTIN_FORMATS[1] # creo que estos de builtin se pueden eliminar
+        c.number_format = numbers.BUILTIN_FORMATS[1]
 
     for v,r in zip(montos, range(2, filas)):
         c = eeff.cell(row=r, column=2)
