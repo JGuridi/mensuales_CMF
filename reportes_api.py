@@ -23,15 +23,10 @@ api_key = '5bb0899f6fa8e7466d385a6305d93596f9df1014'
 
 año, mes, dia = fecha() 
 
-uf = u_efe(año, mes, dia, api_key)['UFs'][0]['Valor'] 
-
 for j,k in zip(ids, archivos):
-    pbar = tqdm(total=3, desc=f'Descargando datos para {k}', ncols=100, bar_format='{desc} {percentage:3.0f}%|{bar}|')
     # saca los datos de balance y resultados
-    balance = pd.DataFrame(mensual_balance(año, mes, j, api_key)['CodigosBalances'])
-    pbar.update(1)
-    resultado = pd.DataFrame(mensual_resultados(año, mes, j, api_key)['CodigosEstadosDeResultado'])
-    pbar.update(1)
+    balance = pd.DataFrame(mensual_balance(año, mes, j, k, api_key)['CodigosBalances'])
+    resultado = pd.DataFrame(mensual_resultados(año, mes, j, k, api_key)['CodigosEstadosDeResultado'])
 
     # pasamos montos a MM
     balance['MonedaTotal'] = balance['MonedaTotal'].str.replace(',','.').astype(float) / 1000000
@@ -53,12 +48,10 @@ for j,k in zip(ids, archivos):
     cuentas_resultado, montos_resultado = list(datos_resultados['cuenta']), list(datos_resultados[j])
     pegar(ws_balance, cuentas_balance, montos_balance, largo_datos_balance)
     pegar(ws_resultado, cuentas_resultado, montos_resultado, largo_datos_resultados)
-    time.sleep(0.5)
-    pbar.update(1)
     wb.save(filename=f'{k}')
     
-    pbar.set_description(f'{k} actualizado en borrador')
-    pbar.close()
+# -------------------------------------- extensión fórmulas --------------------------------------
+
 # -------------------------------------- extensión fórmulas --------------------------------------
 
 # sacamos las fechas de interés para reemplazar en las fórmulas
@@ -79,13 +72,14 @@ for j in (archivos):
 
         # obtenemos la última columna y su índice
         last_col = get_column_letter(ws.max_column)
-        col_idx = column_index_from_string(last_col[0])
+        col_idx = column_index_from_string(last_col)
         # columna de destino
         col_dest = get_column_letter(col_idx + 1)
 
         for cell in ws[last_col:last_col]:
             # valor de la celda para evaluar operación
             f = cell.value
+        
             # fila y columna de destino
             coord_string = re.split("\.|>", str(cell))[-2]
             coord = coordinate_from_string(coord_string)
@@ -96,6 +90,7 @@ for j in (archivos):
             if mes_antiguo_año in str(f):
                 f = f.replace(mes_antiguo_año, mes_año_reemp)
             
+            # reemplazamos formulas y fechas
             if cell.data_type == 'f':
                 ws[colrow_dest] = Translator(f, origin=coord_string).translate_formula(colrow_dest)
 
@@ -128,14 +123,20 @@ for j in (archivos):
             pegar_2(datos_ordenados, rng, resultados)
         
     pbar.update(1)
-    wb.save(filename = f'{j}')
+    # wb.save(filename = f'{j}')
 
-# -------------------------------- anotamos UF --------------------------------            
 pbar.set_description('Datos traspasados')
 pbar.close()
 
+# -------------------------------- anotamos UF -------------------------------- 
+
+print('Actualizando UF')
+uf = u_efe(año, mes, dia, api_key)['UFs'][0]['Valor'] 
 wb = load_workbook(filename='Industria.xlsx')
 ws = wb['EERR']
 uf_row, uf_col = '4', col_dest
 uf_pos = f'{uf_col}{uf_row}'
-ws[uf_pos] = uf  
+ws[uf_pos] = uf
+
+print('Proceso finalizado')
+
