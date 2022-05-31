@@ -15,16 +15,16 @@ def fecha():
     dia = pd.Period(fecha_mes_pasado ,freq='M').end_time.date().day
     return año, mes, dia
 
-def mensual_balance(año, mes, id_b, api_key):
+def mensual_balance(año, mes, id_b, banco, api_key):
     url = f'https://api.cmfchile.cl/api-sbifv3/recursos_api/balances/{año}/{mes}/instituciones/{id_b}?apikey={api_key}&formato=json'
     response = requests.get(url)
-    # print(f'Balance {id_b}: {response}')
+    print(f'Datos balance {banco}: {response}')
     return response.json()
  
-def mensual_resultados(año, mes, id_b, api_key):
+def mensual_resultados(año, mes, id_b, banco, api_key):
     url = f'https://api.cmfchile.cl/api-sbifv3/recursos_api/resultados/{año}/{mes}/instituciones/{id_b}?apikey={api_key}&formato=json'
     response = requests.get(url)
-    # print(f'Resultado {id_b}: {response}')
+    print(f'Datos resultado {banco}: {response}')
     return response.json()
 
 def u_efe(año, mes, dia, api_key):
@@ -34,16 +34,19 @@ def u_efe(año, mes, dia, api_key):
     return response.json()
 
 def pegar(eeff, cuentas, montos, filas):
-    for v,r in zip(cuentas, range(2, filas)): # son 701 cuentas, el 703 no está incluido
+    for v,r in zip(cuentas, range(2, filas)):
         c = eeff.cell(row=r, column=1)
         c.value = v
-        # print(c.data_type)
-    for v,r in zip(montos, range(2, filas)): # son 701 cuentas, el 703 no está incluido
+        c.number_format = numbers.BUILTIN_FORMATS[1] # creo que estos de builtin se pueden eliminar
+
+    for v,r in zip(montos, range(2, filas)):
         c = eeff.cell(row=r, column=2)
         c.value = v
+        c.number_format = numbers.BUILTIN_FORMATS[1]
 
 def sumas(archivo, sheet_name, sum):
     df = pd.read_excel(archivo, sheet_name=sheet_name)
+    print(df)
 
     # filas ordenadas como queremos pegarlas
     orden = df.loc[:, ['Orden']]
@@ -57,8 +60,7 @@ def sumas(archivo, sheet_name, sum):
 
     # juntamos las tablas, manteniendo solo las filas de la tabla con el orden requerido
     merged = orden.merge(todos, how='left', left_on='cuenta', right_on='cuenta').dropna(how='any')
-    # merged['monto'] = merged['monto'].str.replace(',', '.').astype(float)
-    merged['monto'] = merged['monto'].astype(int)
+    merged['monto'] = merged['monto'].astype(float)
     merged.set_index('cuenta', inplace=True)
 
     # sumamos las cuentas que hay que sumar
